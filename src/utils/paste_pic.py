@@ -5,7 +5,21 @@ import uuid
 
 from src.utils.videoio import save_video_with_watermark 
 
-def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, extended_crop=False):
+
+def read_video(video_path):
+    video_stream = cv2.VideoCapture(video_path)
+    fps = video_stream.get(cv2.CAP_PROP_FPS)
+    frames = []
+    while 1:
+        still_reading, frame = video_stream.read()
+        if not still_reading:
+            video_stream.release()
+            break
+        frames.append(frame)
+    return frames, fps
+
+
+def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, extended_crop=False, original_video_path=None):
 
     if not os.path.isfile(pic_path):
         raise ValueError('pic_path must be a valid path to video/image file')
@@ -27,16 +41,10 @@ def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, 
     frame_h = full_img.shape[0]
     frame_w = full_img.shape[1]
 
-    video_stream = cv2.VideoCapture(video_path)
-    fps = video_stream.get(cv2.CAP_PROP_FPS)
-    crop_frames = []
-    while 1:
-        still_reading, frame = video_stream.read()
-        if not still_reading:
-            video_stream.release()
-            break
-        crop_frames.append(frame)
-    
+    crop_frames, fps_gen = read_video(video_path)
+    orig_frames, fps_orig = read_video(original_video_path)
+    fps = fps_gen
+
     if len(crop_info) != 3:
         print("you didn't crop the image")
         return
@@ -55,12 +63,17 @@ def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, 
 
     tmp_path = str(uuid.uuid4())+'.mp4'
     out_tmp = cv2.VideoWriter(tmp_path, cv2.VideoWriter_fourcc(*'MP4V'), fps, (frame_w, frame_h))
-    for crop_frame in tqdm(crop_frames, 'seamlessClone:'):
-        p = cv2.resize(crop_frame.astype(np.uint8), (ox2-ox1, oy2 - oy1)) 
+    for i in tqdm(range(len(crop_frames)), 'seamlessClone:'):
+        if i >= len(orig_frames):
+            break
+    
+        crop_frame = crop_frames[i]
+        orig_frame = orig_frames[i]
 
+        p = cv2.resize(crop_frame.astype(np.uint8), (ox2-ox1, oy2 - oy1))
         mask = 255*np.ones(p.shape, p.dtype)
         location = ((ox1+ox2) // 2, (oy1+oy2) // 2)
-        gen_img = cv2.seamlessClone(p, full_img, mask, location, cv2.NORMAL_CLONE)
+        gen_img = cv2.seamlessClone(p, orig_frame, mask, location, cv2.NORMAL_CLONE)
         out_tmp.write(gen_img)
 
     out_tmp.release()

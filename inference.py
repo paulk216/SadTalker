@@ -15,7 +15,7 @@ from src.utils.init_path import init_path
 def main(args):
     #torch.backends.cudnn.enabled = False
 
-    pic_path = args.source_image
+    vid_path = args.source_video
     audio_path = args.driven_audio
     save_dir = os.path.join(args.result_dir, strftime("%Y_%m_%d_%H.%M.%S"))
     os.makedirs(save_dir, exist_ok=True)
@@ -43,7 +43,7 @@ def main(args):
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
-    first_coeff_path, crop_pic_path, crop_info =  preprocess_model.generate(pic_path, first_frame_dir, args.preprocess,\
+    first_coeff_path, crop_pic_path, crop_info =  preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
                                                                              source_image_flag=True, pic_size=args.size)
     if first_coeff_path is None:
         print("Can't get the coeffs of the input")
@@ -84,9 +84,12 @@ def main(args):
                                 batch_size, input_yaw_list, input_pitch_list, input_roll_list,
                                 expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size)
     
-    result = animate_from_coeff.generate(data, save_dir, pic_path, crop_info, \
-                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size)
-    
+    result = animate_from_coeff.generate(data, save_dir, vid_path, crop_info, \
+                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, 
+                                preprocess=args.preprocess, img_size=args.size,
+                                original_video_path=vid_path
+                            )
+
     shutil.move(result, save_dir+'.mp4')
     print('The generated video is named:', save_dir+'.mp4')
 
@@ -97,8 +100,8 @@ def main(args):
 if __name__ == '__main__':
 
     parser = ArgumentParser()  
-    parser.add_argument("--driven_audio", default='./examples/driven_audio/bus_chinese.wav', help="path to driven audio")
-    parser.add_argument("--source_image", default='./examples/source_image/full_body_1.png', help="path to source image")
+    parser.add_argument("--driven_audio", required=True, help="path to driven audio")
+    parser.add_argument("--source_video", required=True, help="path to source video")
     parser.add_argument("--ref_eyeblink", default=None, help="path to reference video providing eye blinking")
     parser.add_argument("--ref_pose", default=None, help="path to reference video providing pose")
     parser.add_argument("--checkpoint_dir", default='./checkpoints', help="path to output")
