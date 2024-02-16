@@ -43,9 +43,9 @@ def main(args):
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
-    first_coeff_path, crop_pic_path, crop_info =  preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
-                                                                             source_image_flag=True, pic_size=args.size)
-    if first_coeff_path is None:
+    orig_coeff_path, crop_pics_path, crop_info = preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
+                                                                             source_image_flag=False, pic_size=args.size)
+    if orig_coeff_path is None:
         print("Can't get the coeffs of the input")
         return
 
@@ -71,16 +71,17 @@ def main(args):
         ref_pose_coeff_path=None
 
     #audio2ceoff
-    batch = get_data(first_coeff_path, audio_path, device, ref_eyeblink_coeff_path, still=args.still)
+    batch = get_data(orig_coeff_path, audio_path, device, ref_eyeblink_coeff_path, still=args.still)
     coeff_path = audio_to_coeff.generate(batch, save_dir, pose_style, ref_pose_coeff_path)
 
     # 3dface render
     if args.face3dvis:
         from src.face3d.visualize import gen_composed_video
-        gen_composed_video(args, device, first_coeff_path, coeff_path, audio_path, os.path.join(save_dir, '3dface.mp4'))
+        gen_composed_video(args, device, orig_coeff_path, coeff_path, audio_path, os.path.join(save_dir, '3dface.mp4'))
     
     #coeff2video
-    data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path, 
+    crop_pics_path = os.path.join(crop_pics_path, "frame_00000.png")
+    data = get_facerender_data(coeff_path, crop_pics_path, orig_coeff_path, audio_path, 
                                 batch_size, input_yaw_list, input_pitch_list, input_roll_list,
                                 expression_scale=args.expression_scale, still_mode=args.still, preprocess=args.preprocess, size=args.size)
     
@@ -89,7 +90,7 @@ def main(args):
                                 preprocess=args.preprocess, img_size=args.size,
                                 original_video_path=vid_path
                             )
-
+    
     shutil.move(result, save_dir+'.mp4')
     print('The generated video is named:', save_dir+'.mp4')
 
@@ -101,7 +102,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()  
     parser.add_argument("--driven_audio", required=True, help="path to driven audio")
-    parser.add_argument("--source_video", required=True, help="path to source video")
+    parser.add_argument("--source_video", required=True, help="path to source image")
     parser.add_argument("--ref_eyeblink", default=None, help="path to reference video providing eye blinking")
     parser.add_argument("--ref_pose", default=None, help="path to reference video providing pose")
     parser.add_argument("--checkpoint_dir", default='./checkpoints', help="path to output")

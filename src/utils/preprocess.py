@@ -66,7 +66,8 @@ class CropAndExtract():
 
         landmarks_path =  os.path.join(save_dir, pic_name+'_landmarks.txt') 
         coeff_path =  os.path.join(save_dir, pic_name+'.mat')  
-        png_path =  os.path.join(save_dir, pic_name+'.png')  
+        png_path =  os.path.join(save_dir, 'frames')
+        os.makedirs(png_path, exist_ok=True)
 
         #load input
         if not os.path.isfile(input_path):
@@ -116,8 +117,8 @@ class CropAndExtract():
             return None, None
 
         # save crop info
-        for frame in frames_pil:
-            cv2.imwrite(png_path, cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+        for i, frame in enumerate(frames_pil):
+            cv2.imwrite(os.path.join(png_path, f"frame_{i:05}.png"), cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
 
         # 2. get the landmark according to the detected face. 
         if not os.path.isfile(landmarks_path): 
