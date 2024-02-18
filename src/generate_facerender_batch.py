@@ -5,31 +5,48 @@ from skimage import io, img_as_float32, transform
 import torch
 import scipy.io as scio
 from pathlib import Path
+import cv2
+from src.utils.eyes import *
 
 
-def get_facerender_data(coeff_path, pics_path, first_coeff_path, audio_path, 
+def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path, audio_path, 
                         batch_size, input_yaw_list=None, input_pitch_list=None, input_roll_list=None, 
-                        expression_scale=1.0, still_mode = False, preprocess='crop', size = 256):
-
-    # crop_pics_path = os.path.join(crop_pics_path, "frame_00000.png")
+                        expression_scale=1.0, still_mode = False, preprocess='crop', size = 256,
+                        ):
 
     semantic_radius = 13
     video_name = os.path.splitext(os.path.split(coeff_path)[-1])[0]
     txt_path = os.path.splitext(coeff_path)[0]
+    source_frame_paths = sorted(Path(pics_path).glob("*.png"))
+
+    lm = np.loadtxt(landmarks_path).astype(np.float32)
+    lm = lm.reshape([len(source_frame_paths), -1, 2])
+    lm = lm.astype(int)
 
     data={}
     source_image_tss = []
-    for pic_path in sorted(Path(pics_path).glob("*.png")):
+    masks = []
+    for i, pic_path in enumerate(source_frame_paths):
         img1 = Image.open(pic_path)
         source_image = np.array(img1)
+
+        _, mask_array = mask(source_image, lm[i])
+        mask_array = torch.FloatTensor(mask_array)
+        mask_array = mask_array.permute(2, 0, 1)
+        masks.append(mask_array)
+
         source_image = img_as_float32(source_image)
         source_image = transform.resize(source_image, (size, size, 3))
         source_image = source_image.transpose((2, 0, 1))
         source_image_ts = torch.FloatTensor(source_image)
         source_image_tss.append(source_image_ts)
+
+    masks = torch.stack(masks)
     source_image_tss = torch.stack(source_image_tss, dim=0)
- 
-    source_semantics_dict = scio.loadmat(first_coeff_path)
+
+    # add landmarks to the batch
+
+    source_semantics_dict = scio.loadmat(source_coeff_path)
     generated_dict = scio.loadmat(coeff_path)
 
     if 'full' not in preprocess.lower():
@@ -39,9 +56,38 @@ def get_facerender_data(coeff_path, pics_path, first_coeff_path, audio_path,
         source_semantics = source_semantics_dict['coeff_3dmm'][:,:73]         #1 70
         generated_3dmm = generated_dict['coeff_3dmm'][:,:70]
 
+
+    if False:
+        for i in range(len(source_image_tss)):
+            pic = source_image_tss[i].permute(1, 2, 0).numpy().copy()
+            pic = (pic * 255).astype(np.uint8)
+            # first_pic = Path(pics_path) / "frame_00000.png"
+            # first_pic = Image.open(first_pic)
+            # first_pic = np.array(first_pic)
+            draw_face_schematic(pic, lm[i])
+
+            import matplotlib.pyplot as plt
+            fig = plt.figure()
+            plt.imshow(pic)
+            plt.axis(False)
+            plt.savefig(f"masking/frame_with_landmarks_{i}.png")
+
+            pic = source_image_tss[i].permute(1, 2, 0).numpy().copy()
+            pic = (pic * 255).astype(np.uint8)
+            masked_img, mask_img = mask(pic, lm[i])
+            fig = plt.figure()
+            mask_img = (mask_img * 255).astype(int)
+            plt.imshow(mask_img)
+            plt.axis(False)
+            plt.savefig(f"masking/eyes_mask_{i}.png")
+
+            fig = plt.figure()
+            plt.imshow(masked_img)
+            plt.axis(False)
+            plt.savefig(f"masking/eyes_masked_{i}.png")
+
     source_semantics_new = transform_semantic_1_seq(source_semantics, semantic_radius)
-    source_semantics_ts = torch.FloatTensor(source_semantics_new)#.unsqueeze(0)
-    # source_semantics_ts = source_semantics_ts.repeat(batch_size, 1, 1)
+    source_semantics_ts = torch.FloatTensor(source_semantics_new)
 
     # target 
     generated_3dmm[:, :64] = generated_3dmm[:, :64] * expression_scale
@@ -89,6 +135,7 @@ def get_facerender_data(coeff_path, pics_path, first_coeff_path, audio_path,
     data['target_semantics_list'] = torch.FloatTensor(target_semantics_np)
     data['video_name'] = video_name
     data['audio_path'] = audio_path
+    data['masks'] = masks
     
     if input_yaw_list is not None:
         yaw_c_seq = gen_camera_pose(input_yaw_list, frame_num, batch_size)

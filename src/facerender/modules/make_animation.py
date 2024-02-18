@@ -111,6 +111,8 @@ def make_animation(source_image_all, source_semantics_all, target_semantics,
 
             source_image = source_image_all[:, frame_idx]
             source_semantics = source_semantics_all[:, frame_idx]
+            # source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
+            # source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
             
             kp_canonical = kp_detector(source_image)
             he_source = mapping(source_semantics)
