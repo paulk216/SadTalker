@@ -6,7 +6,7 @@ import torch
 import scipy.io as scio
 from pathlib import Path
 import cv2
-from src.utils.eyes import *
+from src.utils.masking import *
 
 
 def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path, audio_path, 
@@ -30,7 +30,7 @@ def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path
         img1 = Image.open(pic_path)
         source_image = np.array(img1)
 
-        _, mask_array = mask(source_image, lm[i])
+        _, mask_array = mouth_outer_mask(source_image, lm[i])
         mask_array = torch.FloatTensor(mask_array)
         mask_array = mask_array.permute(2, 0, 1)
         masks.append(mask_array)

@@ -62,7 +62,7 @@ def get_rotation_matrix(yaw, pitch, roll):
 
     return rot_mat
 
-def keypoint_transformation(kp_canonical, he, wo_exp=False):
+def keypoint_transformation(kp_canonical, he, wo_exp=False, zero_trans_xz=False):
     kp = kp_canonical['value']    # (bs, k, 3) 
     yaw, pitch, roll= he['yaw'], he['pitch'], he['roll']      
     yaw = headpose_pred_to_degree(yaw) 
@@ -86,8 +86,9 @@ def keypoint_transformation(kp_canonical, he, wo_exp=False):
     kp_rotated = torch.einsum('bmp,bkp->bkm', rot_mat, kp)
 
     # keypoint translation
-    t[:, 0] = t[:, 0]*0
-    t[:, 2] = t[:, 2]*0
+    if zero_trans_xz:
+        t[:, 0] = t[:, 0] * 0
+        t[:, 2] = t[:, 2] * 0
     t = t.unsqueeze(1).repeat(1, kp.shape[1], 1)
     kp_t = kp_rotated + t
 
@@ -106,13 +107,13 @@ def make_animation(source_image_all, source_semantics_all, target_semantics,
         predictions = []
 
         batch_size = target_semantics.shape[0]
+        source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
+        source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
 
         for frame_idx in tqdm(range(target_semantics.shape[1]), 'Face Renderer:'):
 
-            source_image = source_image_all[:, frame_idx]
-            source_semantics = source_semantics_all[:, frame_idx]
-            # source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
-            # source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
+            # source_image = source_image_all[:, frame_idx]
+            # source_semantics = source_semantics_all[:, frame_idx]
             
             kp_canonical = kp_detector(source_image)
             he_source = mapping(source_semantics)

@@ -88,7 +88,7 @@ def main(args):
     result = animate_from_coeff.generate(data, save_dir, vid_path, crop_info, \
                                 enhancer=args.enhancer, background_enhancer=args.background_enhancer, 
                                 preprocess=args.preprocess, img_size=args.size,
-                                original_video_path=vid_path, mask_eyes=args.mask_eyes
+                                original_video_path=vid_path, use_mask=args.use_mask
                             )
     
     shutil.move(result, save_dir+'.mp4')
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()  
     parser.add_argument("--driven_audio", required=True, help="path to driven audio")
     parser.add_argument("--source_video", required=True, help="path to source image")
-    parser.add_argument("--mask_eyes", default=True, help="preserve the original video eyes using a mask")
+    parser.add_argument("--use_mask", action="store_true", help="preserve the original video parts (eyes or more) using a mask")
     parser.add_argument("--ref_eyeblink", default=None, help="path to reference video providing eye blinking")
     parser.add_argument("--ref_pose", default=None, help="path to reference video providing pose")
     parser.add_argument("--checkpoint_dir", default='./checkpoints', help="path to output")

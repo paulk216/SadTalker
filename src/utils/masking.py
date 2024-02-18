@@ -15,7 +15,7 @@ def margin_hull(in_points, margin, n):
     new_points = cv2.convexHull(new_points)
     return new_points
 
-def mask(image, landmarks):
+def eyes_mask(image, landmarks):
     landmarks = landmarks.astype(np.int32)
     mask = np.zeros_like(image)
     size = image.shape[0]
@@ -41,6 +41,33 @@ def mask(image, landmarks):
     result = image * (1 - mask)
     result = result.astype(int)
     return result, mask
+
+def mouth_outer_mask(image, landmarks):
+    landmarks = landmarks.astype(np.int32)
+    mask = np.zeros_like(image)
+    size = image.shape[0]
+
+    nose_tip = 33
+    face_edge = list(range(3, 14))
+
+    mouth_indices = [nose_tip] + face_edge
+    mouth_lm = landmarks[mouth_indices]
+    mouth_lm[:, 1] += np.array(
+        [0] + [0, 0, 0] + [5, 7, 10, 7, 5] + [0, 0, 0])
+    # mouth_lm = np.concatenate([landmarks[nose_tip:nose_tip+1], landmarks[face_edge] + 10], axis=0)
+    mouth_lm = margin_hull(mouth_lm, 3, 20)
+    cv2.fillPoly(mask, [mouth_lm], (255, 255, 255))
+
+    mask = mask / 255
+    # resize just to make sure that kernels of the same size, if we try different resolution model
+    mask = cv2.resize(mask, (512, 512))
+    # mask = cv2.GaussianBlur(mask, (27, 27), 51)
+    mask = cv2.GaussianBlur(mask, (27, 27), 51)
+    mask = cv2.resize(mask, (size, size))
+
+    result = image * mask
+    result = result.astype(int)
+    return result, 1 - mask
 
 # visualize
 def draw_landmarks(image, landmarks):

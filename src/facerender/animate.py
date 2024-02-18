@@ -157,7 +157,7 @@ class AnimateFromCoeff():
     def generate(
             self, x, video_save_dir, pic_path, crop_info, enhancer=None, 
             background_enhancer=None, preprocess='crop', img_size=256, original_video_path=None,
-            mask_eyes=False
+            use_mask=False
         ):
 
         source_image=x['source_image'].type(torch.FloatTensor)
@@ -204,10 +204,12 @@ class AnimateFromCoeff():
         for idx in range(predictions_video.shape[0]):
             gen_image = predictions_video[idx]
             source_image = source_images[idx]
-            mask = masks[idx]
-            # orig_eyes = image * masks[idx] + source_images[idx] * (1 - masks[idx])
-            orig_eyes = gen_image * (1 - mask) + source_image * mask
-            image = orig_eyes
+            if use_mask:
+                mask = masks[idx]
+                image = gen_image * (1 - mask)
+                image = gen_image * (1 - mask) + source_image * mask
+            else:
+                image = gen_image
             image = np.transpose(image.data.cpu().numpy(), [1, 2, 0]).astype(np.float32)
 
             video.append(image)
