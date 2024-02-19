@@ -43,7 +43,7 @@ def main(args):
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
-    orig_coeff_path, crop_pics_path, crop_info, landmarks_path = preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
+    orig_coeff_path, crop_pics_path, crop_info, landmarks_path, fps = preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
                                                                              source_image_flag=False, pic_size=args.size)
     if orig_coeff_path is None:
         print("Can't get the coeffs of the input")
@@ -54,7 +54,7 @@ def main(args):
         ref_eyeblink_frame_dir = os.path.join(save_dir, ref_eyeblink_videoname)
         os.makedirs(ref_eyeblink_frame_dir, exist_ok=True)
         print('3DMM Extraction for the reference video providing eye blinking')
-        ref_eyeblink_coeff_path, _, _, _ =  preprocess_model.generate(ref_eyeblink, ref_eyeblink_frame_dir, args.preprocess, source_image_flag=False)
+        ref_eyeblink_coeff_path, _, _, _, _ =  preprocess_model.generate(ref_eyeblink, ref_eyeblink_frame_dir, args.preprocess, source_image_flag=False)
     else:
         ref_eyeblink_coeff_path=None
 
@@ -66,7 +66,7 @@ def main(args):
             ref_pose_frame_dir = os.path.join(save_dir, ref_pose_videoname)
             os.makedirs(ref_pose_frame_dir, exist_ok=True)
             print('3DMM Extraction for the reference video providing pose')
-            ref_pose_coeff_path, _, _ , _=  preprocess_model.generate(ref_pose, ref_pose_frame_dir, args.preprocess, source_image_flag=False)
+            ref_pose_coeff_path, _, _ , _, _ =  preprocess_model.generate(ref_pose, ref_pose_frame_dir, args.preprocess, source_image_flag=False)
     else:
         ref_pose_coeff_path=None
 
@@ -83,12 +83,13 @@ def main(args):
     data = get_facerender_data(coeff_path, crop_pics_path, orig_coeff_path, landmarks_path, audio_path, 
                                 batch_size, input_yaw_list, input_pitch_list, input_roll_list,
                                 expression_scale=args.expression_scale, still_mode=args.still, 
-                                preprocess=args.preprocess, size=args.size)
+                                preprocess=args.preprocess, size=args.size, 
+                                source_frame_idx=args.source_frame_idx, fps=fps)
     
     result = animate_from_coeff.generate(data, save_dir, vid_path, crop_info, \
                                 enhancer=args.enhancer, background_enhancer=args.background_enhancer, 
                                 preprocess=args.preprocess, img_size=args.size,
-                                original_video_path=vid_path, use_mask=args.use_mask
+                                original_video_path=vid_path, use_mask=args.use_mask, fps=fps
                             )
     
     shutil.move(result, save_dir+'.mp4')
@@ -102,7 +103,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()  
     parser.add_argument("--driven_audio", required=True, help="path to driven audio")
-    parser.add_argument("--source_video", required=True, help="path to source image")
+    parser.add_argument("--source_video", required=True, help="path to source video")
+    parser.add_argument("--source_frame_idx", default=0, type=int, help="idx of a source frame")
     parser.add_argument("--use_mask", action="store_true", help="preserve the original video parts (eyes or more) using a mask")
     parser.add_argument("--ref_eyeblink", default=None, help="path to reference video providing eye blinking")
     parser.add_argument("--ref_pose", default=None, help="path to reference video providing pose")

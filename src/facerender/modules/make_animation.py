@@ -108,7 +108,10 @@ def make_animation(source_image_all, source_semantics_all, target_semantics,
 
         batch_size = target_semantics.shape[0]
         source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
-        source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
+        source_semantics = source_semantics_all.repeat(batch_size, 1, 1)
+
+        # source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
+        # source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
 
         for frame_idx in tqdm(range(target_semantics.shape[1]), 'Face Renderer:'):
 

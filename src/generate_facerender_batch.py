@@ -7,11 +7,13 @@ import scipy.io as scio
 from pathlib import Path
 import cv2
 from src.utils.masking import *
+import torch.nn.functional as F
 
 
 def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path, audio_path, 
                         batch_size, input_yaw_list=None, input_pitch_list=None, input_roll_list=None, 
-                        expression_scale=1.0, still_mode = False, preprocess='crop', size = 256,
+                        expression_scale=1.0, still_mode = False, preprocess='crop', size=256,
+                        source_frame_idx=0, fps=25
                         ):
 
     semantic_radius = 13
@@ -49,42 +51,14 @@ def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path
     source_semantics_dict = scio.loadmat(source_coeff_path)
     generated_dict = scio.loadmat(coeff_path)
 
-    if 'full' not in preprocess.lower():
-        source_semantics = source_semantics_dict['coeff_3dmm'][:,:70]         #1 70
-        generated_3dmm = generated_dict['coeff_3dmm'][:,:70]
-    else:
-        source_semantics = source_semantics_dict['coeff_3dmm'][:,:73]         #1 70
-        generated_3dmm = generated_dict['coeff_3dmm'][:,:70]
-
-
-    if False:
-        for i in range(len(source_image_tss)):
-            pic = source_image_tss[i].permute(1, 2, 0).numpy().copy()
-            pic = (pic * 255).astype(np.uint8)
-            # first_pic = Path(pics_path) / "frame_00000.png"
-            # first_pic = Image.open(first_pic)
-            # first_pic = np.array(first_pic)
-            draw_face_schematic(pic, lm[i])
-
-            import matplotlib.pyplot as plt
-            fig = plt.figure()
-            plt.imshow(pic)
-            plt.axis(False)
-            plt.savefig(f"masking/frame_with_landmarks_{i}.png")
-
-            pic = source_image_tss[i].permute(1, 2, 0).numpy().copy()
-            pic = (pic * 255).astype(np.uint8)
-            masked_img, mask_img = mask(pic, lm[i])
-            fig = plt.figure()
-            mask_img = (mask_img * 255).astype(int)
-            plt.imshow(mask_img)
-            plt.axis(False)
-            plt.savefig(f"masking/eyes_mask_{i}.png")
-
-            fig = plt.figure()
-            plt.imshow(masked_img)
-            plt.axis(False)
-            plt.savefig(f"masking/eyes_masked_{i}.png")
+    source_semantics = source_semantics_dict['coeff_3dmm'][:,:73]
+    generated_3dmm = generated_dict['coeff_3dmm'][:,:64] # we need only expression
+    fps_ratio = fps / 25
+    generated_3dmm = torch.FloatTensor(generated_3dmm)
+    generated_3dmm = F.interpolate(
+        generated_3dmm.permute(1, 0).unsqueeze(0), scale_factor=fps_ratio
+    ).squeeze().permute(1, 0)
+    generated_3dmm = generated_3dmm.numpy()
 
     source_semantics_new = transform_semantic_1_seq(source_semantics, semantic_radius)
     source_semantics_ts = torch.FloatTensor(source_semantics_new)
@@ -96,14 +70,10 @@ def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path
     frame_num = min(source_semantics.shape[0], generated_3dmm.shape[0])
     generated_3dmm = generated_3dmm[:frame_num]
     source_semantics = source_semantics[:frame_num]
-    generated_3dmm[:, 64:] = source_semantics[:, 64:70]
+    generated_3dmm = np.concatenate([generated_3dmm, source_semantics[:, 64:]], axis=1)
 
     source_image_tss = source_image_tss[:frame_num]
     source_semantics_ts = source_semantics_ts[:frame_num]
-
-    # TODO: remove
-    if 'full' in preprocess.lower():
-        generated_3dmm = np.concatenate([generated_3dmm, source_semantics[:, 70:]], axis=1)
 
     with open(txt_path+'.txt', 'w') as f:
         for coeff in generated_3dmm:
@@ -123,15 +93,16 @@ def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path
             target_semantics_list.append(target_semantics)
 
         source_image_tss = torch.cat([source_image_tss, source_image_tss[-1:].repeat(batch_size-remainder, 1, 1, 1)], dim=0)
-        source_semantics_ts = torch.cat([source_semantics_ts, source_semantics_ts[-1:].repeat(batch_size-remainder, 1, 1)], dim=0)
+        
+        # source_semantics_ts = torch.cat([source_semantics_ts, source_semantics_ts[-1:].repeat(batch_size-remainder, 1, 1)], dim=0)
 
     target_semantics_np = np.array(target_semantics_list)             #frame_num 70 semantic_radius*2+1
     target_semantics_np = target_semantics_np.reshape(batch_size, -1, *target_semantics_np.shape[1:])
     source_image_tss = source_image_tss.reshape(batch_size, -1, *source_image_tss.shape[1:])
-    source_semantics_ts = source_semantics_ts.reshape(batch_size, -1, *source_semantics_ts.shape[1:])
+    # source_semantics_ts = source_semantics_ts.reshape(batch_size, -1, *source_semantics_ts.shape[1:])
 
     data['source_image'] = source_image_tss
-    data['source_semantics'] = source_semantics_ts
+    data['source_semantics'] = source_semantics_ts[source_frame_idx:source_frame_idx + 1]
     data['target_semantics_list'] = torch.FloatTensor(target_semantics_np)
     data['video_name'] = video_name
     data['audio_path'] = audio_path

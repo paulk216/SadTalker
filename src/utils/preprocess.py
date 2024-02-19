@@ -168,4 +168,4 @@ class CropAndExtract():
 
             savemat(coeff_path, {'coeff_3dmm': semantic_npy, 'full_3dmm': np.array(full_coeffs)[0]})
 
-        return coeff_path, png_path, crop_info, landmarks_path
+        return coeff_path, png_path, crop_info, landmarks_path, fps

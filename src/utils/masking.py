@@ -20,9 +20,6 @@ def eyes_mask(image, landmarks):
     mask = np.zeros_like(image)
     size = image.shape[0]
 
-    # mouth_indices = list(range(48, 68))
-    # landmarks = landmarks[mouth_indices]
-
     left_eye_idx = list(range(36, 41))
     left_eye_lm = landmarks[left_eye_idx]
     left_eye_lm = margin_hull(left_eye_lm, 10, 20)

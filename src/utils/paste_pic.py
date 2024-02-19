@@ -19,7 +19,9 @@ def read_video(video_path):
     return frames, fps
 
 
-def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, extended_crop=False, original_video_path=None):
+def paste_pic(video_path, pic_path, crop_info, new_audio_path, 
+              full_video_path, extended_crop=False, 
+              original_video_path=None):
 
     if not os.path.isfile(pic_path):
         raise ValueError('pic_path must be a valid path to video/image file')
