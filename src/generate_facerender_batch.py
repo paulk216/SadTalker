@@ -6,7 +6,7 @@ import torch
 import scipy.io as scio
 from pathlib import Path
 import cv2
-from src.utils.masking import *
+from src.utils.masking import mouth_outer_mask
 import torch.nn.functional as F
 
 
@@ -93,7 +93,6 @@ def get_facerender_data(coeff_path, pics_path, source_coeff_path, landmarks_path
             target_semantics_list.append(target_semantics)
 
         source_image_tss = torch.cat([source_image_tss, source_image_tss[-1:].repeat(batch_size-remainder, 1, 1, 1)], dim=0)
-        
         # source_semantics_ts = torch.cat([source_semantics_ts, source_semantics_ts[-1:].repeat(batch_size-remainder, 1, 1)], dim=0)
 
     target_semantics_np = np.array(target_semantics_list)             #frame_num 70 semantic_radius*2+1

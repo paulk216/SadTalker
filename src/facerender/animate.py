@@ -206,7 +206,6 @@ class AnimateFromCoeff():
             source_image = source_images[idx]
             if use_mask:
                 mask = masks[idx]
-                image = gen_image * (1 - mask)
                 image = gen_image * (1 - mask) + source_image * mask
             else:
                 image = gen_image
@@ -266,10 +265,10 @@ class AnimateFromCoeff():
 
             try:
                 enhanced_images_gen_with_len = enhancer_generator_with_len(full_video_path, method=enhancer, bg_upsampler=background_enhancer)
-                imageio.mimsave(enhanced_path, enhanced_images_gen_with_len, fps=float(25))
+                imageio.mimsave(enhanced_path, enhanced_images_gen_with_len, fps=float(fps))
             except:
                 enhanced_images_gen_with_len = enhancer_list(full_video_path, method=enhancer, bg_upsampler=background_enhancer)
-                imageio.mimsave(enhanced_path, enhanced_images_gen_with_len, fps=float(25))
+                imageio.mimsave(enhanced_path, enhanced_images_gen_with_len, fps=float(fps))
             
             save_video_with_watermark(enhanced_path, new_audio_path, av_path_enhancer, watermark= False)
             print(f'The generated video is named {video_save_dir}/{video_name_enhancer}')

@@ -19,18 +19,13 @@ def main(args):
     audio_path = args.driven_audio
     save_dir = os.path.join(args.result_dir, strftime("%Y_%m_%d_%H.%M.%S"))
     os.makedirs(save_dir, exist_ok=True)
-    pose_style = args.pose_style
+    pose_style = 0
     device = args.device
     batch_size = args.batch_size
-    input_yaw_list = args.input_yaw
-    input_pitch_list = args.input_pitch
-    input_roll_list = args.input_roll
-    ref_eyeblink = args.ref_eyeblink
-    ref_pose = args.ref_pose
 
     current_root_path = os.path.split(sys.argv[0])[0]
 
-    sadtalker_paths = init_path(args.checkpoint_dir, os.path.join(current_root_path, 'src/config'), args.size, args.old_version, args.preprocess)
+    sadtalker_paths = init_path(args.checkpoint_dir, os.path.join(current_root_path, 'src/config'), args.size, args.old_version, 'full')
 
     #init model
     preprocess_model = CropAndExtract(sadtalker_paths, device)
@@ -43,35 +38,17 @@ def main(args):
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
-    orig_coeff_path, crop_pics_path, crop_info, landmarks_path, fps = preprocess_model.generate(vid_path, first_frame_dir, args.preprocess,\
+    orig_coeff_path, crop_pics_path, crop_info, landmarks_path, fps = preprocess_model.generate(vid_path, first_frame_dir, 'full',\
                                                                              source_image_flag=False, pic_size=args.size)
     if orig_coeff_path is None:
         print("Can't get the coeffs of the input")
         return
 
-    if ref_eyeblink is not None:
-        ref_eyeblink_videoname = os.path.splitext(os.path.split(ref_eyeblink)[-1])[0]
-        ref_eyeblink_frame_dir = os.path.join(save_dir, ref_eyeblink_videoname)
-        os.makedirs(ref_eyeblink_frame_dir, exist_ok=True)
-        print('3DMM Extraction for the reference video providing eye blinking')
-        ref_eyeblink_coeff_path, _, _, _, _ =  preprocess_model.generate(ref_eyeblink, ref_eyeblink_frame_dir, args.preprocess, source_image_flag=False)
-    else:
-        ref_eyeblink_coeff_path=None
-
-    if ref_pose is not None:
-        if ref_pose == ref_eyeblink: 
-            ref_pose_coeff_path = ref_eyeblink_coeff_path
-        else:
-            ref_pose_videoname = os.path.splitext(os.path.split(ref_pose)[-1])[0]
-            ref_pose_frame_dir = os.path.join(save_dir, ref_pose_videoname)
-            os.makedirs(ref_pose_frame_dir, exist_ok=True)
-            print('3DMM Extraction for the reference video providing pose')
-            ref_pose_coeff_path, _, _ , _, _ =  preprocess_model.generate(ref_pose, ref_pose_frame_dir, args.preprocess, source_image_flag=False)
-    else:
-        ref_pose_coeff_path=None
+    ref_eyeblink_coeff_path=None
+    ref_pose_coeff_path=None
 
     #audio2ceoff
-    batch = get_data(orig_coeff_path, audio_path, device, ref_eyeblink_coeff_path, still=args.still)
+    batch = get_data(orig_coeff_path, audio_path, device, ref_eyeblink_coeff_path)
     coeff_path = audio_to_coeff.generate(batch, save_dir, pose_style, ref_pose_coeff_path)
 
     # 3dface render
@@ -81,14 +58,14 @@ def main(args):
     
     #coeff2video
     data = get_facerender_data(coeff_path, crop_pics_path, orig_coeff_path, landmarks_path, audio_path, 
-                                batch_size, input_yaw_list, input_pitch_list, input_roll_list,
-                                expression_scale=args.expression_scale, still_mode=args.still, 
-                                preprocess=args.preprocess, size=args.size, 
+                                batch_size, None, None, None,
+                                expression_scale=args.expression_scale, 
+                                preprocess='full', size=args.size, 
                                 source_frame_idx=args.source_frame_idx, fps=fps)
     
     result = animate_from_coeff.generate(data, save_dir, vid_path, crop_info, \
-                                enhancer=args.enhancer, background_enhancer=args.background_enhancer, 
-                                preprocess=args.preprocess, img_size=args.size,
+                                enhancer=args.enhancer, background_enhancer=None, 
+                                preprocess='full', img_size=args.size,
                                 original_video_path=vid_path, use_mask=args.use_mask, fps=fps
                             )
     
@@ -106,23 +83,14 @@ if __name__ == '__main__':
     parser.add_argument("--source_video", required=True, help="path to source video")
     parser.add_argument("--source_frame_idx", default=0, type=int, help="idx of a source frame")
     parser.add_argument("--use_mask", action="store_true", help="preserve the original video parts (eyes or more) using a mask")
-    parser.add_argument("--ref_eyeblink", default=None, help="path to reference video providing eye blinking")
-    parser.add_argument("--ref_pose", default=None, help="path to reference video providing pose")
     parser.add_argument("--checkpoint_dir", default='./checkpoints', help="path to output")
     parser.add_argument("--result_dir", default='./results', help="path to output")
-    parser.add_argument("--pose_style", type=int, default=0,  help="input pose style from [0, 46)")
     parser.add_argument("--batch_size", type=int, default=2,  help="the batch size of facerender")
     parser.add_argument("--size", type=int, default=256,  help="the image size of the facerender")
     parser.add_argument("--expression_scale", type=float, default=1.,  help="the batch size of facerender")
-    parser.add_argument('--input_yaw', nargs='+', type=int, default=None, help="the input yaw degree of the user ")
-    parser.add_argument('--input_pitch', nargs='+', type=int, default=None, help="the input pitch degree of the user")
-    parser.add_argument('--input_roll', nargs='+', type=int, default=None, help="the input roll degree of the user")
     parser.add_argument('--enhancer',  type=str, default=None, help="Face enhancer, [gfpgan, RestoreFormer]")
-    parser.add_argument('--background_enhancer',  type=str, default=None, help="background enhancer, [realesrgan]")
     parser.add_argument("--cpu", dest="cpu", action="store_true") 
     parser.add_argument("--face3dvis", action="store_true", help="generate 3d face and 3d landmarks") 
-    parser.add_argument("--still", action="store_true", help="can crop back to the original videos for the full body aniamtion") 
-    parser.add_argument("--preprocess", default='crop', choices=['crop', 'extcrop', 'resize', 'full', 'extfull'], help="how to preprocess the images" ) 
     parser.add_argument("--verbose",action="store_true", help="saving the intermedia output or not" ) 
     parser.add_argument("--old_version",action="store_true", help="use the pth other than safetensor version" ) 
 

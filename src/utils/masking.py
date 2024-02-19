@@ -51,14 +51,12 @@ def mouth_outer_mask(image, landmarks):
     mouth_lm = landmarks[mouth_indices]
     mouth_lm[:, 1] += np.array(
         [0] + [0, 0, 0] + [5, 7, 10, 7, 5] + [0, 0, 0])
-    # mouth_lm = np.concatenate([landmarks[nose_tip:nose_tip+1], landmarks[face_edge] + 10], axis=0)
     mouth_lm = margin_hull(mouth_lm, 3, 20)
     cv2.fillPoly(mask, [mouth_lm], (255, 255, 255))
 
     mask = mask / 255
     # resize just to make sure that kernels of the same size, if we try different resolution model
     mask = cv2.resize(mask, (512, 512))
-    # mask = cv2.GaussianBlur(mask, (27, 27), 51)
     mask = cv2.GaussianBlur(mask, (27, 27), 51)
     mask = cv2.resize(mask, (size, size))
 

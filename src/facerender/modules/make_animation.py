@@ -99,7 +99,7 @@ def keypoint_transformation(kp_canonical, he, wo_exp=False, zero_trans_xz=False)
     return {'value': kp_transformed}
 
 
-def make_animation(source_image_all, source_semantics_all, target_semantics,
+def make_animation(source_image_all, source_semantics, target_semantics,
                             generator, kp_detector, he_estimator, mapping, 
                             yaw_c_seq=None, pitch_c_seq=None, roll_c_seq=None,
                             use_exp=True, use_half=False):
@@ -108,7 +108,7 @@ def make_animation(source_image_all, source_semantics_all, target_semantics,
 
         batch_size = target_semantics.shape[0]
         source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
-        source_semantics = source_semantics_all.repeat(batch_size, 1, 1)
+        source_semantics = source_semantics.repeat(batch_size, 1, 1)
 
         # source_semantics = source_semantics_all[:1, 0].repeat(batch_size, 1, 1)
         # source_image = source_image_all[:1, 0].repeat(batch_size, 1, 1, 1)
